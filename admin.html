@@ -111,6 +111,17 @@
     .lead-meta { display: flex; gap: 16px; flex-wrap: wrap; color: #52645a; font-size: 13px; }
     .lead-meta strong { color: #18291f; }
     .lead-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; max-width: 520px; }
+    .review-control {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto;
+      gap: 6px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .review-control label {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
     .tag { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 800; }
     .tag-new { background: #e5f8ea; color: #078532; }
     .tag-contacted { background: #e8f2ff; color: #2168ae; }
@@ -208,9 +219,11 @@
             <select id="status-filter" onchange="render()">
               <option value="">全部</option>
               <option value="new">新申請</option>
+              <option value="pending">待審核</option>
               <option value="contacted">已聯絡</option>
               <option value="pending_docs">需補件</option>
               <option value="approved">已通過</option>
+              <option value="rejected">已退回</option>
               <option value="invalid">無效</option>
             </select>
           </div>
@@ -265,9 +278,11 @@
 
     const statusLabels = {
       new: '新申請',
+      pending: '待審核',
       contacted: '已聯絡',
       pending_docs: '需補件',
       approved: '已通過',
+      rejected: '已退回',
       invalid: '無效'
     };
 
@@ -291,6 +306,8 @@
     function statusTag(status) {
       const cls = status === 'approved' ? 'tag-approved' :
         status === 'pending_docs' ? 'tag-pending' :
+        status === 'pending' ? 'tag-pending' :
+        status === 'rejected' ? 'tag-invalid' :
         status === 'invalid' ? 'tag-invalid' :
         status === 'contacted' ? 'tag-contacted' : 'tag-new';
       return `<span class="tag ${cls}">${escapeHTML(statusLabels[status] || status || '新申請')}</span>`;
@@ -379,6 +396,7 @@
           lead.phone,
           lead.line_id,
           lead.bank_account,
+          lead.admin_modified_card,
           lead.subsidy_amount,
           lead.monthly_income
         ].some(value => String(value || '').toLowerCase().includes(q));
@@ -392,7 +410,7 @@
         const d = new Date(x.created_at);
         return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
       }).length;
-      document.getElementById('stat-new').textContent = data.filter(x => (x.status || 'new') === 'new').length;
+      document.getElementById('stat-new').textContent = data.filter(x => ['new', 'pending'].includes(x.status || 'new')).length;
       document.getElementById('stat-contacted').textContent = data.filter(x => x.status === 'contacted').length;
       document.getElementById('stat-warning').textContent = data.filter(x => x.warning_account === 'yes').length;
       document.getElementById('stat-approved').textContent = data.filter(x => x.status === 'approved').length;
@@ -421,12 +439,47 @@
             <div class="lead-time">${escapeHTML(formatDate(lead.created_at))}</div>
           </div>
           <div class="lead-actions">
+            <button onclick="updateLeadStatus('${lead.id}','approved')">核準通過</button>
+            <button class="danger" onclick="updateLeadStatus('${lead.id}','rejected')">拒絕申請</button>
             <button onclick="copyClient('${lead.id}')">一鍵複製給甲方</button>
             <button class="secondary" onclick="copyField('${lead.id}','bank_account')">複製卡號</button>
             <button class="secondary" onclick="openDetails('${lead.id}')">詳情</button>
+            <div class="review-control">
+              <label for="admin-card-${escapeHTML(lead.id)}">二次校對/異常賬號修正</label>
+              <input id="admin-card-${escapeHTML(lead.id)}" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="輸入需核對的帳號資料" />
+              <button class="secondary" onclick="saveCorrectedCard('${lead.id}')">觸發數據不一致攔截</button>
+            </div>
           </div>
         </article>
       `).join('');
+    }
+
+    async function updateLeadStatus(id, status) {
+      const { error } = await client.from(LEADS_TABLE).update({
+        status,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) {
+        alert('更新狀態失敗：' + error.message);
+        return;
+      }
+      await loadLeads();
+      if (activeLeadId === id) openDetails(id);
+    }
+
+    async function saveCorrectedCard(id) {
+      const input = document.getElementById('admin-card-' + id);
+      const adminModifiedCard = input ? input.value.trim() : '';
+      const { error } = await client.from(LEADS_TABLE).update({
+        admin_modified_card: adminModifiedCard,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) {
+        alert('寫入二次校對資料失敗：' + error.message);
+        return;
+      }
+      await loadLeads();
+      if (activeLeadId === id) openDetails(id);
     }
 
     async function signedUrl(path) {
@@ -450,6 +503,7 @@
           ${detailItem('手機號', lead.phone)}
           ${detailItem('LINE ID', lead.line_id)}
           ${detailItem('銀行卡號 / 收款帳戶', lead.bank_account)}
+          ${detailItem('二次校對帳號', lead.admin_modified_card)}
           ${detailItem('申請補助金額', lead.subsidy_amount || lead.amount)}
           ${detailItem('工作收入', lead.monthly_income || lead.employment)}
           ${detailItem('是否警示戶', warningLabel(lead.warning_account))}
@@ -478,6 +532,9 @@
           </select>
           <div style="height:10px"></div>
           <textarea id="detail-notes" placeholder="客服備註">${escapeHTML(lead.notes || '')}</textarea>
+          <div style="height:10px"></div>
+          <label for="detail-admin-card">二次校對/異常賬號修正</label>
+          <input id="detail-admin-card" type="text" value="${escapeHTML(lead.admin_modified_card || '')}" placeholder="輸入需核對的帳號資料">
           <div style="height:10px"></div>
           <button onclick="saveDetail('${lead.id}')">保存</button>
         </div>
@@ -510,6 +567,7 @@
         `手機號：${lead.phone || ''}`,
         `LINE ID：${lead.line_id || ''}`,
         `銀行卡號 / 收款帳戶：${lead.bank_account || ''}`,
+        `二次校對帳號：${lead.admin_modified_card || ''}`,
         `申請補助金額：${lead.subsidy_amount || lead.amount || ''}`,
         `工作收入：${lead.monthly_income || lead.employment || ''}`,
         `是否警示戶：${warningLabel(lead.warning_account)}`,
@@ -550,9 +608,11 @@
     async function saveDetail(id) {
       const status = document.getElementById('detail-status').value;
       const notes = document.getElementById('detail-notes').value;
+      const adminModifiedCard = document.getElementById('detail-admin-card').value.trim();
       const { error } = await client.from(LEADS_TABLE).update({
         status,
         notes,
+        admin_modified_card: adminModifiedCard,
         updated_at: new Date().toISOString()
       }).eq('id', id);
       if (error) {
@@ -564,7 +624,7 @@
     }
 
     function exportCSV() {
-      const cols = ['created_at','name','id_number','phone','line_id','bank_account','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
+      const cols = ['created_at','name','id_number','phone','line_id','bank_account','admin_modified_card','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
       const rows = filteredLeads();
       const csv = [cols.join(',')].concat(rows.map(row =>
         cols.map(col => '"' + String(row[col] || '').replace(/"/g, '""') + '"').join(',')

