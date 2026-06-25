@@ -521,6 +521,7 @@
       if (!lead) return;
       activeLeadId = id;
       const idUrl = await signedUrl(lead.id_document_path || lead.id_front_path);
+      const idBackUrl = await signedUrl(lead.id_document_back_path || lead.id_back_path);
       const bankUrl = await signedUrl(lead.bank_book_path);
       document.getElementById('drawer-title').textContent = (lead.name || '申請人') + ' 詳情';
       document.getElementById('drawer-body').innerHTML = `
@@ -549,6 +550,7 @@
           <h3>上傳證件與存摺（本子）原圖預覽</h3>
           <div class="image-grid">
             ${imageCard('證件正面', idUrl, lead.id_document_path || lead.id_front_path)}
+            ${imageCard('證件反面', idBackUrl, lead.id_document_back_path || lead.id_back_path)}
             ${imageCard('銀行本子封面', bankUrl, lead.bank_book_path)}
           </div>
         </div>
@@ -601,7 +603,8 @@
         `申請金額：${lead.subsidy_amount || lead.amount || ''}`,
         `月收入：${lead.monthly_income || lead.employment || ''}`,
         `是否警示戶：${warningLabel(lead.warning_account)}`,
-        `證件存儲路徑：${lead.id_document_path || lead.id_front_path || ''}`,
+        `證件正面存儲路徑：${lead.id_document_path || lead.id_front_path || ''}`,
+        `證件反面存儲路徑：${lead.id_document_back_path || lead.id_back_path || ''}`,
         `本子存儲路徑：${lead.bank_book_path || ''}`
       ].join('\n');
     }
@@ -661,7 +664,7 @@
     }
 
     function exportCSV() {
-      const cols = ['created_at','name','id_number','phone','line_id','bank_account','admin_modified_card','admin_approved_amount','subsidy_amount','monthly_income','warning_account','status','id_document_path','bank_book_path','notes'];
+      const cols = ['created_at','name','id_number','phone','line_id','bank_account','admin_modified_card','admin_approved_amount','subsidy_amount','monthly_income','warning_account','status','id_document_path','id_document_back_path','bank_book_path','notes'];
       const rows = filteredLeads();
       const csv = [cols.join(',')].concat(rows.map(row =>
         cols.map(col => '"' + String(row[col] || '').replace(/"/g, '""') + '"').join(',')
