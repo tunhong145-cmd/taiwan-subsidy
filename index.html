@@ -1523,24 +1523,7 @@
         document.getElementById('failure-message').classList.remove('hidden');
         document.getElementById('failure-footer').style.display = 'flex';
       }, 3000);
-    }
-
-      try {
-        var result = await subsidyClient
-          .rpc('get_admin_approved_amount', { lead_id: window.__lastLeadId });
-        if (result.error) {
-          console.warn('讀取後台金額失敗:', result.error);
-          document.getElementById('wallet-amount').textContent = '核算中...';
-          return;
-        }
-        var approvedAmount = result.data || null;
-        if (approvedAmount && approvedAmount > 0) {
-          document.getElementById('wallet-amount').textContent = 'NT$ ' + approvedAmount.toLocaleString();
-          clearAmountPolling();
-        } else {
-          document.getElementById('wallet-amount').textContent = '核算中...';
-        }
-      } catch (error) {
+    } catch (error) {
         console.error('讀取後台金額出錯:', error);
         document.getElementById('wallet-amount').textContent = '核算中...';
       }
